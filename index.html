@@ -1,53 +1,41 @@
 <!DOCTYPE html>
-<html lang="cs">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Můj Web</title>
+    <title>The Verge Clone</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <header>
-        <h1>Vítejte na mém webu</h1>
-        <button class="toggle-dark-mode" onclick="toggleDarkMode()">Přepnout dark mode</button>
         <nav>
             <ul>
-                <li><a href="#home">Domů</a></li>
-                <li><a href="#about">O mně</a></li>
-                <li><a href="#blog">Blog</a></li>
-                <li><a href="#contact">Kontakt</a></li>
+                <li><a href="#">Home</a></li>
+                <li><a href="#">Tech</a></li>
+                <li><a href="#">Science</a></li>
+                <li><a href="#">Culture</a></li>
             </ul>
         </nav>
     </header>
     <main>
-        <section id="home">
-            <h2>Domů</h2>
-            <p>Vítáme vás na našem webu!</p>
+        <section class="featured">
+            <article>
+                <img src="featured-image.jpg" alt="Featured">
+                <h1>Featured Article</h1>
+                <p>This is a summary of the featured article.</p>
+            </article>
         </section>
-        <section id="about">
-            <h2>O mně</h2>
-            <p>Informace o mně...</p>
-        </section>
-        <section id="blog">
-            <h2>Blog</h2>
-            <p>Články a příspěvky...</p>
-        </section>
-        <section id="contact">
-            <h2>Kontakt</h2>
-            <form>
-                <label for="name">Jméno:</label>
-                <input type="text" id="name" name="name">
-                <label for="email">Email:</label>
-                <input type="email" id="email" name="email">
-                <label for="message">Zpráva:</label>
-                <textarea id="message" name="message"></textarea>
-                <button type="submit">Odeslat</button>
-            </form>
+        <section class="articles">
+            <article>
+                <img src="article-image.jpg" alt="Article">
+                <h2>Article Title</h2>
+                <p>This is a summary of the article.</p>
+            </article>
+            <!-- More articles -->
         </section>
     </main>
     <footer>
-        <p>&copy; 2024 Můj Web. Všechna práva vyhrazena.</p>
+        <p>&copy; 2024 The Verge Clone</p>
     </footer>
-    <script src="js/scripts.js"></script>
 </body>
 </html>
