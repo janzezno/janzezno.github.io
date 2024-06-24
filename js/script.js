@@ -1,4 +1,4 @@
-document.querySelector('form').addEventListener('submit', function(event) {
-    event.preventDefault();
-    alert('Formulář byl odeslán!');
-});
+
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+}
