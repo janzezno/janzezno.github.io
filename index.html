@@ -451,7 +451,7 @@
 <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
   <div class="modal" style="position:relative;">
     <button class="modal-close" id="modal-close" aria-label="Zavřít">&times;</button>
-    <h2 id="modal-title">Δ Deltadle</h2>
+    <h2 id="modal-title">Deltadle</h2>
     <div class="modal-date" id="modal-date"></div>
 
     <div id="result-section" style="display:none; width:100%; text-align:center;">
@@ -882,7 +882,7 @@ function closeModal() {
 // Share
 // ══════════════════════════════════════════════════════════════════
 function buildShareText() {
-  const lines = [`Δ Deltadle ${state.guesses.length}/${MAX_ROWS}\n`];
+  const lines = [`Deltadle ${state.guesses.length}/${MAX_ROWS}\n`];
   state.guesses.forEach(guess => {
     const result = evalGuess(guess);
     lines.push(result.map(r => EMOJI[r]).join(''));
