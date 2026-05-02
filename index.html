@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deltadle – Uhádni slovo</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --color-bg:        #ffffff;
+      --color-header-bg: #003DA5;
+      --color-header-fg: #ffffff;
+      --color-border:    #d3d6da;
+      --color-empty-bg:  #ffffff;
+      --color-filled-bg: #ffffff;
+      --color-correct:   #538d4e;
+      --color-present:   #b59f3b;
+      --color-absent:    #787c7e;
+      --color-key-bg:    #d3d6da;
+      --color-key-fg:    #1a1a1b;
+      --color-text:      #1a1a1b;
+      --tile-size:       clamp(48px, 11vw, 62px);
+      --tile-gap:        5px;
+      --key-height:      58px;
+      --key-height-sm:   50px;
+      --radius:          4px;
+    }
+
+    body {
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ── */
+    header {
+      width: 100%;
+      background: var(--color-header-bg);
+      color: var(--color-header-fg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      position: relative;
+      box-shadow: 0 2px 6px rgba(0,0,0,.20);
+      user-select: none;
+    }
+
+    .header-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .header-title {
+      font-size: clamp(22px, 6vw, 32px);
+      font-weight: 800;
+      letter-spacing: .04em;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .delta-sym {
+      font-size: 1.1em;
+      opacity: .85;
+    }
+
+    .header-sub {
+      font-size: clamp(11px, 2.8vw, 13px);
+      opacity: .80;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+
+    .header-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,.18);
+      border: none;
+      border-radius: 50%;
+      width: 36px; height: 36px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      color: #fff;
+      font-size: 18px;
+      transition: background .15s;
+    }
+    .header-btn:hover { background: rgba(255,255,255,.32); }
+
+    /* ── Toast ── */
+    #toast-container {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: #1a1a1b;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      opacity: 0;
+      transform: translateY(-8px);
+      animation: toastIn .2s ease forwards, toastOut .3s ease 1.8s forwards;
+      white-space: nowrap;
+    }
+
+    @keyframes toastIn  { to { opacity: 1; transform: translateY(0); } }
+    @keyframes toastOut { to { opacity: 0; transform: translateY(-8px); } }
+
+    /* ── Board ── */
+    #board-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 16px 0 8px;
+      width: 100%;
+    }
+
+    #board {
+      display: grid;
+      grid-template-rows: repeat(6, var(--tile-size));
+      gap: var(--tile-gap);
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(5, var(--tile-size));
+      gap: var(--tile-gap);
+    }
+
+    /* ── Tiles ── */
+    .tile {
+      width: var(--tile-size);
+      height: var(--tile-size);
+      border: 2px solid var(--color-border);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(18px, 4.5vw, 28px);
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--color-text);
+      background: var(--color-empty-bg);
+      position: relative;
+      perspective: 250px;
+      user-select: none;
+      /* pop animation on key press */
+      transition: border-color .1s;
+    }
+
+    .tile[data-letter] {
+      border-color: #878a8c;
+      animation: pop .1s ease;
+    }
+
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      50%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+
+    /* flip wrapper */
+    .tile-inner {
+      width: 100%; height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+
+    .tile-front,
+    .tile-back {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backface-visibility: hidden;
+      border-radius: calc(var(--radius) - 2px);
+    }
+
+    .tile-back {
+      transform: rotateX(180deg);
+    }
+
+    /* State colours applied to .tile-back and then to .tile itself after flip */
+    .tile[data-state="correct"]  .tile-back { background: var(--color-correct); color: #fff; border: 2px solid var(--color-correct); }
+    .tile[data-state="present"]  .tile-back { background: var(--color-present); color: #fff; border: 2px solid var(--color-present); }
+    .tile[data-state="absent"]   .tile-back { background: var(--color-absent);  color: #fff; border: 2px solid var(--color-absent);  }
+
+    /* flip animation */
+    .tile.flip .tile-inner {
+      animation: flip .5s ease forwards;
+    }
+
+    @keyframes flip {
+      0%   { transform: rotateX(0deg); }
+      49%  { transform: rotateX(90deg); }
+      51%  { transform: rotateX(90deg); }
+      100% { transform: rotateX(180deg); }
+    }
+
+    /* after flip, keep back face visible */
+    .tile.revealed .tile-inner { transform: rotateX(180deg); }
+
+    /* shake */
+    .row.shake {
+      animation: shake .5s ease;
+    }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      10%,50%,90% { transform: translateX(-6px); }
+      30%,70% { transform: translateX(6px); }
+    }
+
+    /* bounce on win */
+    .row.bounce .tile:nth-child(1) { animation: bounce .6s ease .0s; }
+    .row.bounce .tile:nth-child(2) { animation: bounce .6s ease .08s; }
+    .row.bounce .tile:nth-child(3) { animation: bounce .6s ease .16s; }
+    .row.bounce .tile:nth-child(4) { animation: bounce .6s ease .24s; }
+    .row.bounce .tile:nth-child(5) { animation: bounce .6s ease .32s; }
+
+    @keyframes bounce {
+      0%,100% { transform: translateY(0); }
+      40%  { transform: translateY(-22px); }
+      60%  { transform: translateY(-10px); }
+    }
+
+    /* ── Keyboard ── */
+    #keyboard {
+      width: 100%;
+      max-width: 500px;
+      padding: 8px 8px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      user-select: none;
+    }
+
+    .kb-row {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .key {
+      height: var(--key-height);
+      min-width: 43px;
+      padding: 0 6px;
+      border-radius: 4px;
+      border: none;
+      background: var(--color-key-bg);
+      color: var(--color-key-fg);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-transform: uppercase;
+      transition: background .2s, color .2s;
+      -webkit-tap-highlight-color: transparent;
+      flex: 1;
+    }
+
+    .key.wide { min-width: 65px; font-size: 12px; }
+
+    .key[data-state="correct"] { background: var(--color-correct); color: #fff; }
+    .key[data-state="present"] { background: var(--color-present); color: #fff; }
+    .key[data-state="absent"]  { background: var(--color-absent);  color: #fff; }
+
+    .key:active { filter: brightness(.9); }
+
+    /* ── Modal overlay ── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.45);
+      z-index: 300;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      padding: 28px 32px 24px;
+      width: min(92vw, 400px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      transform: translateY(20px) scale(.97);
+      transition: transform .25s;
+      box-shadow: 0 8px 32px rgba(0,0,0,.25);
+    }
+
+    .modal-overlay.open .modal { transform: translateY(0) scale(1); }
+
+    .modal h2 {
+      font-size: 18px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: var(--color-text);
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 12px; right: 14px;
+      background: none; border: none;
+      font-size: 22px; cursor: pointer;
+      color: #888; line-height: 1;
+    }
+
+    /* Modal date */
+    .modal-date {
+      font-size: 13px;
+      color: #787c7e;
+      letter-spacing: .04em;
+    }
+
+    /* Modal result section */
+    .result-msg {
+      font-size: 20px;
+      font-weight: 800;
+      text-align: center;
+      color: var(--color-text);
+    }
+
+    .result-word {
+      font-size: 16px;
+      color: #787c7e;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px 10px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      transition: filter .15s, transform .1s;
+    }
+
+    .btn:active { transform: scale(.97); }
+
+    .btn-new {
+      background: var(--color-header-bg);
+      color: #fff;
+    }
+
+    .btn:hover { filter: brightness(1.1); }
+
+    /* Divider */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: var(--color-border);
+    }
+
+    /* ── Responsive tweaks ── */
+    @media (max-width: 380px) {
+      :root { --key-height: var(--key-height-sm); }
+      .key { min-width: 30px; font-size: 11px; }
+      .key.wide { min-width: 46px; }
+      .modal { padding: 20px 16px 18px; }
+    }
+
+    @media (max-height: 680px) {
+      :root { --tile-size: 48px; --tile-gap: 4px; }
+      .key { height: 46px; }
+      #board-container { padding: 8px 0 4px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Header ══ -->
+<header>
+  <div class="header-inner">
+    <div class="header-title">
+     Deltadle
+    </div>
+    <div class="header-sub">Uhádni slovo v 6 pokusech</div>
+  </div>
+  <button class="header-btn" id="btn-stats" title="Statistiky" aria-label="Statistiky">
+    &#9783;
+  </button>
+</header>
+
+<!-- ══ Toast ══ -->
+<div id="toast-container" aria-live="polite"></div>
+
+<!-- ══ Board ══ -->
+<div id="board-container">
+  <div id="board"></div>
+</div>
+
+<!-- ══ Keyboard ══ -->
+<div id="keyboard">
+  <div class="kb-row" id="kb-row-1"></div>
+  <div class="kb-row" id="kb-row-2"></div>
+  <div class="kb-row" id="kb-row-3"></div>
+</div>
+
+<!-- ══ Stats / Result Modal ══ -->
+<div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal" style="position:relative;">
+    <button class="modal-close" id="modal-close" aria-label="Zavřít">&times;</button>
+    <h2 id="modal-title">Δ Deltadle</h2>
+    <div class="modal-date" id="modal-date"></div>
+
+    <div id="result-section" style="display:none; width:100%; text-align:center;">
+      <div class="result-msg" id="result-msg"></div>
+      <div class="result-word" id="result-word"></div>
+    </div>
+
+    <div class="btn-row" id="modal-btn-row" style="display:none;">
+      <button class="btn btn-new" id="btn-new">Nová hra</button>
+    </div>
+  </div>
+</div>
+
+<script src="czech-words.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════
+// Constants
+// ══════════════════════════════════════════════════════════════════
+const TARGET     = 'DELTA';
+const MAX_ROWS   = 6;
+const WORD_LEN   = 5;
+const LS_KEY     = 'deltadle_v1';
+
+// Platná česká pětipísmenná slova (bez diakritiky)
+const VALID_WORDS = new Set(CZECH_WORDS);
+
+const KB_ROWS = [
+  ['Q','W','E','R','T','Y','U','I','O','P'],
+  ['A','S','D','F','G','H','J','K','L'],
+  ['ENTER','Z','X','C','V','B','N','M','⌫'],
+];
+
+// ══════════════════════════════════════════════════════════════════
+// State
+// ══════════════════════════════════════════════════════════════════
+let state = loadState();
+
+// ══════════════════════════════════════════════════════════════════
+// DOM refs
+// ══════════════════════════════════════════════════════════════════
+const boardEl        = document.getElementById('board');
+const toastContainer = document.getElementById('toast-container');
+const modalOverlay   = document.getElementById('modal-overlay');
+const modalDate      = document.getElementById('modal-date');
+const resultSection  = document.getElementById('result-section');
+const resultMsg      = document.getElementById('result-msg');
+const resultWord     = document.getElementById('result-word');
+const modalBtnRow    = document.getElementById('modal-btn-row');
+const btnNew         = document.getElementById('btn-new');
+
+// ══════════════════════════════════════════════════════════════════
+// State persistence
+// ══════════════════════════════════════════════════════════════════
+function defaultState() {
+  return {
+    // current game
+    guesses:    [],   // array of strings (submitted words)
+    currentRow: 0,
+    currentTiles: [], // letters typed so far in current row
+    gameOver:   false,
+    won:        false,
+    // stats
+    played:     0,
+    wins:       0,
+    streak:     0,
+    maxStreak:  0,
+    lastPlayedDate: null,
+    distribution: { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 },
+    // board key colours
+    keyStates: {},
+  };
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return defaultState();
+    const s = JSON.parse(raw);
+    // ensure distribution exists for older saves
+    if (!s.distribution) s.distribution = { 1:0, 2:0, 3:0, 4:0, 5:0, 6:0 };
+    if (!s.keyStates)    s.keyStates = {};
+    if (s.currentTiles == null) s.currentTiles = [];
+    return s;
+  } catch { return defaultState(); }
+}
+
+function saveState() {
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Build board DOM
+// ══════════════════════════════════════════════════════════════════
+const rows = [];
+const tiles = [];   // tiles[row][col]
+
+function buildBoard() {
+  boardEl.innerHTML = '';
+  rows.length = 0;
+  tiles.length = 0;
+  for (let r = 0; r < MAX_ROWS; r++) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'row';
+    rowEl.id = `row-${r}`;
+    const rowTiles = [];
+    for (let c = 0; c < WORD_LEN; c++) {
+      const tile = document.createElement('div');
+      tile.className = 'tile';
+      tile.innerHTML = '<div class="tile-inner"><div class="tile-front"></div><div class="tile-back"></div></div>';
+      rowEl.appendChild(tile);
+      rowTiles.push(tile);
+    }
+    boardEl.appendChild(rowEl);
+    rows.push(rowEl);
+    tiles.push(rowTiles);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Build keyboard DOM
+// ══════════════════════════════════════════════════════════════════
+const keyEls = {};   // keyEls['A'] = <button>
+
+function buildKeyboard() {
+  KB_ROWS.forEach((letters, i) => {
+    const rowEl = document.getElementById(`kb-row-${i + 1}`);
+    rowEl.innerHTML = '';
+    letters.forEach(letter => {
+      const btn = document.createElement('button');
+      btn.className = 'key' + (letter === 'ENTER' || letter === '⌫' ? ' wide' : '');
+      btn.textContent = letter;
+      btn.dataset.key = letter;
+      btn.addEventListener('click', () => handleKey(letter));
+      rowEl.appendChild(btn);
+      keyEls[letter] = btn;
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Restore board from saved state
+// ══════════════════════════════════════════════════════════════════
+function restoreBoard() {
+  // Replay submitted guesses instantly (no animation)
+  state.guesses.forEach((word, r) => {
+    const result = evalGuess(word);
+    word.split('').forEach((letter, c) => {
+      const tile = tiles[r][c];
+      tile.dataset.letter = letter;
+      tile.dataset.state  = result[c];
+      const front = tile.querySelector('.tile-front');
+      const back  = tile.querySelector('.tile-back');
+      front.textContent = letter;
+      back.textContent  = letter;
+      tile.classList.add('revealed');
+    });
+  });
+
+  // Restore in-progress letters for current row
+  if (!state.gameOver) {
+    state.currentTiles.forEach((letter, c) => {
+      const tile = tiles[state.currentRow][c];
+      tile.dataset.letter = letter;
+      tile.querySelector('.tile-front').textContent = letter;
+    });
+  }
+
+  // Restore keyboard colours
+  Object.entries(state.keyStates).forEach(([letter, st]) => {
+    const btn = keyEls[letter];
+    if (btn) btn.dataset.state = st;
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Evaluate guess → returns array of 'correct'|'present'|'absent'
+// ══════════════════════════════════════════════════════════════════
+function evalGuess(guess) {
+  const result = Array(WORD_LEN).fill('absent');
+  const targetArr = TARGET.split('');
+  const guessArr  = guess.split('');
+
+  // First pass: correct
+  const used = Array(WORD_LEN).fill(false);
+  guessArr.forEach((ch, i) => {
+    if (ch === targetArr[i]) {
+      result[i] = 'correct';
+      used[i]   = true;
+    }
+  });
+
+  // Second pass: present
+  guessArr.forEach((ch, i) => {
+    if (result[i] === 'correct') return;
+    const j = targetArr.findIndex((t, idx) => t === ch && !used[idx]);
+    if (j !== -1) {
+      result[i] = 'present';
+      used[j]   = true;
+    }
+  });
+
+  return result;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Key handling
+// ══════════════════════════════════════════════════════════════════
+function handleKey(key) {
+  if (state.gameOver) return;
+
+  if (key === 'ENTER') {
+    submitGuess();
+    return;
+  }
+
+  if (key === '⌫' || key === 'BACKSPACE') {
+    deleteLetter();
+    return;
+  }
+
+  if (/^[A-Z]$/.test(key)) {
+    addLetter(key);
+  }
+}
+
+function addLetter(letter) {
+  if (state.currentTiles.length >= WORD_LEN) return;
+  const col  = state.currentTiles.length;
+  const tile = tiles[state.currentRow][col];
+  state.currentTiles.push(letter);
+  tile.dataset.letter = letter;
+  tile.querySelector('.tile-front').textContent = letter;
+  // pop animation: remove then re-add
+  tile.style.animation = 'none';
+  tile.offsetHeight; // reflow
+  tile.style.animation = '';
+  saveState();
+}
+
+function deleteLetter() {
+  if (state.currentTiles.length === 0) return;
+  const col = state.currentTiles.length - 1;
+  const tile = tiles[state.currentRow][col];
+  state.currentTiles.pop();
+  delete tile.dataset.letter;
+  tile.querySelector('.tile-front').textContent = '';
+  saveState();
+}
+
+function submitGuess() {
+  if (state.currentTiles.length < WORD_LEN) {
+    showToast('Příliš málo písmen!');
+    shakeRow(state.currentRow);
+    return;
+  }
+
+  const guess  = state.currentTiles.join('');
+
+  if (!VALID_WORDS.has(guess)) {
+    showToast('Slovo není ve slovníku!');
+    shakeRow(state.currentRow);
+    return;
+  }
+  const result = evalGuess(guess);
+
+  // Commit guess to state
+  state.guesses.push(guess);
+  state.currentTiles = [];
+  const row = state.currentRow;
+  state.currentRow++;
+
+  // Flip tiles with staggered delay
+  revealRow(row, guess, result, () => {
+    // Update keyboard colours (better state wins: correct > present > absent)
+    const priority = { correct: 3, present: 2, absent: 1 };
+    guess.split('').forEach((ch, i) => {
+      const cur = state.keyStates[ch];
+      const neo = result[i];
+      if (!cur || priority[neo] > priority[cur]) {
+        state.keyStates[ch] = neo;
+        const btn = keyEls[ch];
+        if (btn) btn.dataset.state = neo;
+      }
+    });
+
+    const won  = result.every(r => r === 'correct');
+    const lost = !won && state.currentRow === MAX_ROWS;
+
+    if (won || lost) {
+      state.gameOver = true;
+      state.won      = won;
+      updateStats(won, row + 1);
+      saveState();
+
+      if (won) {
+        bounceRow(row);
+        const msgs = ['Výborně! 🎉','Fantastické!','Správně!','Skvělé!','Báječné!','Uff, stěží!'];
+        showToast(msgs[Math.min(row, msgs.length - 1)]);
+        setTimeout(() => openModal(true), 1800);
+      } else {
+        showToast(`Slovo bylo: ${TARGET}`, 3000);
+        setTimeout(() => openModal(true), 2200);
+      }
+    } else {
+      saveState();
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Animations
+// ══════════════════════════════════════════════════════════════════
+function revealRow(row, guess, result, onDone) {
+  const delay = 300; // ms per tile
+  tiles[row].forEach((tile, c) => {
+    const back = tile.querySelector('.tile-back');
+    back.textContent = guess[c];
+    tile.dataset.state = result[c];
+
+    setTimeout(() => {
+      tile.classList.add('flip');
+    }, c * delay);
+
+    setTimeout(() => {
+      tile.classList.remove('flip');
+      tile.classList.add('revealed');
+    }, c * delay + 500);
+  });
+
+  setTimeout(onDone, WORD_LEN * delay + 500);
+}
+
+function shakeRow(row) {
+  const rowEl = rows[row];
+  rowEl.classList.remove('shake');
+  rowEl.offsetHeight;
+  rowEl.classList.add('shake');
+  rowEl.addEventListener('animationend', () => rowEl.classList.remove('shake'), { once: true });
+}
+
+function bounceRow(row) {
+  const rowEl = rows[row];
+  setTimeout(() => {
+    rowEl.classList.add('bounce');
+    rowEl.addEventListener('animationend', () => rowEl.classList.remove('bounce'), { once: true });
+  }, WORD_LEN * 300 + 200);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Toast
+// ══════════════════════════════════════════════════════════════════
+function showToast(msg, duration = 2100) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  toastContainer.appendChild(t);
+  // match animation duration
+  setTimeout(() => t.remove(), duration);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Stats
+// ══════════════════════════════════════════════════════════════════
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function updateStats(won, guessCount) {
+  const today = todayStr();
+  state.played++;
+  if (won) {
+    state.wins++;
+    state.distribution[guessCount] = (state.distribution[guessCount] || 0) + 1;
+
+    // Streak logic
+    const last = state.lastPlayedDate;
+    if (last === null) {
+      state.streak = 1;
+    } else {
+      const lastDate = new Date(last);
+      const todayDate = new Date(today);
+      const diffDays = Math.round((todayDate - lastDate) / 86400000);
+      if (diffDays === 1) {
+        state.streak++;
+      } else if (diffDays === 0) {
+        // same day replayed — don't increment
+      } else {
+        state.streak = 1;
+      }
+    }
+    if (state.streak > state.maxStreak) state.maxStreak = state.streak;
+  } else {
+    state.streak = 0;
+  }
+  state.lastPlayedDate = today;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Modal
+// ══════════════════════════════════════════════════════════════════
+function openModal(fromGame = false) {
+  const d = new Date();
+  modalDate.textContent = d.toLocaleDateString('cs-CZ', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  if (state.gameOver) {
+    resultSection.style.display = 'block';
+    modalBtnRow.style.display   = 'flex';
+    if (state.won) {
+      resultMsg.textContent  = 'Správně! Znal jsi Deltu!';
+      resultWord.textContent = '';
+    } else {
+      resultMsg.textContent  = 'Nevadí, příště to vyjde!';
+      resultWord.textContent = `Slovo bylo: ${TARGET}`;
+    }
+  } else {
+    resultSection.style.display = 'none';
+    modalBtnRow.style.display   = 'none';
+  }
+
+  modalOverlay.classList.add('open');
+}
+
+function closeModal() {
+  modalOverlay.classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Share
+// ══════════════════════════════════════════════════════════════════
+function buildShareText() {
+  const lines = [`Δ Deltadle ${state.guesses.length}/${MAX_ROWS}\n`];
+  state.guesses.forEach(guess => {
+    const result = evalGuess(guess);
+    lines.push(result.map(r => EMOJI[r]).join(''));
+  });
+  return lines.join('\n');
+}
+
+// ══════════════════════════════════════════════════════════════════
+// New game
+// ══════════════════════════════════════════════════════════════════
+function newGame() {
+  // Keep stats, reset game
+  const fresh = defaultState();
+  fresh.played     = state.played;
+  fresh.wins       = state.wins;
+  fresh.streak     = state.streak;
+  fresh.maxStreak  = state.maxStreak;
+  fresh.lastPlayedDate = state.lastPlayedDate;
+  fresh.distribution   = state.distribution;
+  state = fresh;
+  saveState();
+  closeModal();
+  buildBoard();
+  buildKeyboard();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Event listeners
+// ══════════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  if (modalOverlay.classList.contains('open')) {
+    if (e.key === 'Escape') closeModal();
+    return;
+  }
+  const key = e.key.toUpperCase();
+  if (key === 'ENTER') { handleKey('ENTER'); return; }
+  if (key === 'BACKSPACE') { handleKey('BACKSPACE'); return; }
+  if (/^[A-Z]$/.test(key)) { handleKey(key); }
+});
+
+document.getElementById('btn-stats').addEventListener('click', () => openModal(false));
+document.getElementById('modal-close').addEventListener('click', closeModal);
+
+modalOverlay.addEventListener('click', e => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+btnNew.addEventListener('click', newGame);
+
+// ══════════════════════════════════════════════════════════════════
+// Init
+// ══════════════════════════════════════════════════════════════════
+(function init() {
+  buildBoard();
+  buildKeyboard();
+  restoreBoard();
+
+  // If game was already over when page loaded, show modal after brief delay
+  if (state.gameOver) {
+    setTimeout(() => openModal(true), 600);
+  }
+})();
+</script>
+</body>
+</html>
