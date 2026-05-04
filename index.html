@@ -402,6 +402,36 @@
       background: var(--color-border);
     }
 
+    /* ── Flowers ── */
+    #flowers {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .flower {
+      position: absolute;
+      top: -80px;
+      font-size: 28px;
+      animation: fall linear infinite;
+      opacity: 0.75;
+      user-select: none;
+    }
+
+    @keyframes fall {
+      0%   { transform: translateY(0) rotate(0deg); opacity: .8; }
+      80%  { opacity: .7; }
+      100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+    }
+
+    /* ensure game UI stays above flowers */
+    header, #toast-container, #board-container, #keyboard, .modal-overlay {
+      position: relative;
+      z-index: 1;
+    }
+
     /* ── Responsive tweaks ── */
     @media (max-width: 380px) {
       :root { --key-height: var(--key-height-sm); }
@@ -418,6 +448,9 @@
   </style>
 </head>
 <body>
+
+<!-- ══ Flowers ══ -->
+<div id="flowers"></div>
 
 <!-- ══ Header ══ -->
 <header>
@@ -931,6 +964,26 @@ modalOverlay.addEventListener('click', e => {
 });
 
 btnNew.addEventListener('click', newGame);
+
+// ══════════════════════════════════════════════════════════════════
+// Flowers
+// ══════════════════════════════════════════════════════════════════
+(function spawnFlowers() {
+  const emojis = ['🌸','🌺','🌻','🌼','🌷','🪷','💐','🌹','🏵️','🌾'];
+  const container = document.getElementById('flowers');
+  const count = 40;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('span');
+    el.className = 'flower';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    const left     = Math.random() * 100;
+    const duration = 6 + Math.random() * 12;
+    const delay    = -Math.random() * 18;
+    const size     = 18 + Math.random() * 26;
+    el.style.cssText = `left:${left}%;font-size:${size}px;animation-duration:${duration}s;animation-delay:${delay}s;`;
+    container.appendChild(el);
+  }
+})();
 
 // ══════════════════════════════════════════════════════════════════
 // Init
